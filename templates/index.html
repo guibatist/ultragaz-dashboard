@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G4S | Hub Operacional Ultragaz</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-body: #09090b; 
+            --surface: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-soft: #e2e8f0;
+            --g4s-red: #ED1C24;
+            --g4s-red-light: #fef2f2;
+            
+            --radius-card: 12px;
+            --radius-element: 6px;
+            --radius-pill: 9999px;
+            --shadow-float: 0 4px 20px -2px rgba(0, 0, 0, 0.2);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        
+        /* TRAVA A TELA EM 100% DA ALTURA - SEM SCROLL EXTERNO */
+        html, body { 
+            background-color: var(--bg-body); 
+            color: var(--text-main); 
+            height: 100vh; 
+            width: 100vw;
+            overflow: hidden; 
+            display: flex; 
+            flex-direction: column; 
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Topbar Mais Compacta */
+        .topbar { 
+            background-color: var(--bg-body);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
+            padding: 0 24px; 
+            height: 64px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            flex-shrink: 0;
+        }
+
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .brand-logo { color: var(--g4s-red); font-weight: 800; font-size: 28px; letter-spacing: -1px; line-height: 1; }
+        .brand-text { display: flex; flex-direction: column; }
+        .brand-title { font-weight: 700; font-size: 14px; color: #ffffff; }
+        .brand-client { font-weight: 500; color: #94a3b8; font-size: 11px; }
+        
+        .controls { display: flex; gap: 12px; align-items: center; }
+        .control-select { 
+            background: #1e293b; 
+            border: 1px solid #334155; 
+            color: #ffffff; 
+            padding: 8px 16px; 
+            font-size: 12px; 
+            font-weight: 500; 
+            outline: none; 
+            cursor: pointer; 
+            border-radius: var(--radius-element); 
+            transition: all 0.2s ease;
+        }
+        .control-select:focus { border-color: var(--g4s-red); }
+
+        /* Container Principal Grid - Altura Dinâmica */
+        .container { 
+            padding: 16px 24px; 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 16px; 
+            min-height: 0; /* Essencial para o flex child não vazar */
+        }
+        
+        /* KPIs Compactos */
+        .kpi-wrapper { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 16px; 
+            flex-shrink: 0; 
+        }
+        .kpi-card { 
+            background: var(--surface); 
+            padding: 16px; 
+            border-radius: var(--radius-card); 
+            box-shadow: var(--shadow-float);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .kpi-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .kpi-icon { 
+            width: 28px; height: 28px; 
+            border-radius: var(--radius-element);
+            display: flex; align-items: center; justify-content: center;
+            background: #f1f5f9;
+        }
+        .kpi-card.critical .kpi-icon { background: var(--g4s-red-light); }
+        .kpi-label { font-size: 12px; font-weight: 600; color: var(--text-main); }
+        .kpi-value { font-size: 28px; font-weight: 800; color: var(--text-main); letter-spacing: -1px; line-height: 1; }
+        .kpi-card.critical .kpi-value { color: var(--g4s-red); }
+        .kpi-meta { font-size: 11px; color: var(--text-muted); font-weight: 500; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Grade de Gráficos e Tabelas - Ajusta automaticamente à altura */
+        .bento-main {
+            display: grid;
+            grid-template-rows: 1fr 1fr;
+            gap: 16px;
+            flex: 1;
+            min-height: 0;
+        }
+        .bento-row, .bento-grid { 
+            display: grid; 
+            gap: 16px; 
+            min-height: 0;
+        }
+        .bento-row { grid-template-columns: 1fr 1fr; }
+        .bento-grid { grid-template-columns: 2fr 1fr; }
+        
+        /* Painel Base */
+        .panel { 
+            background: var(--surface); 
+            padding: 16px; 
+            border-radius: var(--radius-card); 
+            box-shadow: var(--shadow-float);
+            display: flex; 
+            flex-direction: column; 
+            min-height: 0; /* Garante que elementos internos respeitem o tamanho */
+        }
+        .panel-header { 
+            font-size: 14px; 
+            font-weight: 700; 
+            color: var(--text-main); 
+            margin-bottom: 16px; 
+            flex-shrink: 0;
+        }
+        
+        .chart-box { 
+            position: relative; 
+            width: 100%; 
+            flex: 1; /* Preenche a altura restante do painel */
+            min-height: 0;
+        }
+
+        /* Tabela com Scroll Interno */
+        .table-container { 
+            overflow-y: auto; 
+            flex: 1; 
+            margin-right: -8px; /* Compensar scrollbar */
+            padding-right: 8px;
+        }
+        /* Customizar Scrollbar da Tabela */
+        .table-container::-webkit-scrollbar { width: 6px; }
+        .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { 
+            font-size: 11px; 
+            font-weight: 600; 
+            color: var(--text-muted); 
+            padding: 8px 12px; 
+            border-bottom: 1px solid var(--border-soft); 
+            position: sticky;
+            top: 0;
+            background: var(--surface);
+            z-index: 10;
+        }
+        td { 
+            padding: 10px 12px; 
+            font-size: 12px; 
+            font-weight: 500; 
+            border-bottom: 1px solid var(--border-soft); 
+            color: var(--text-main); 
+        }
+        
+        /* Badges SaaS */
+        .badge { 
+            padding: 4px 10px; 
+            font-size: 11px; 
+            font-weight: 700; 
+            border-radius: var(--radius-pill); 
+            display: inline-flex;
+            align-items: center;
+        }
+        .badge-doc { background: #f1f5f9; color: #334155; }
+        .badge-alert { background: var(--g4s-red); color: #ffffff; }
+        .badge-neutral { background: #f8fafc; color: var(--text-muted); border: 1px solid var(--border-soft); }
+
+        .td-title { font-weight: 700; color: var(--text-main); margin-bottom: 2px; }
+        .td-sub { font-size: 11px; color: var(--text-muted); font-weight: 500;}
+
+        /* ==========================================
+           RESPONSIVIDADE (MOBILE & TABLET)
+           Desliga a trava de tela apenas em dispositivos menores
+           ========================================== */
+        @media (max-width: 1024px) {
+            html, body { height: auto; overflow: auto; }
+            .bento-main { grid-template-rows: auto auto; }
+            .kpi-wrapper { grid-template-columns: repeat(2, 1fr); }
+            .bento-grid { grid-template-columns: 1fr; }
+            .chart-box { height: 250px; flex: none; }
+            .table-container { height: 300px; flex: none; }
+        }
+
+        @media (max-width: 768px) {
+            .topbar { flex-direction: column; height: auto; padding: 16px; gap: 12px; align-items: flex-start; }
+            .controls { width: 100%; flex-direction: column; }
+            .control-select { width: 100%; }
+            .kpi-wrapper { grid-template-columns: 1fr; }
+            .bento-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="topbar">
+        <div class="brand">
+            <div class="brand-logo">G4S</div>
+            <div class="brand-text">
+                <span class="brand-title">Hub Operacional</span>
+                <span class="brand-client">Inconformidades &bull; Ultragaz</span>
+            </div>
+        </div>
+        <div class="controls">
+            <select id="filtroUnidade" class="control-select" onchange="atualizarDash()"></select>
+            <select id="filtroDocumento" class="control-select" onchange="atualizarDash()"></select>
+        </div>
+    </nav>
+
+    <main class="container">
+        
+        <section class="kpi-wrapper">
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <div class="kpi-icon">
+                        <svg width="16" height="16" fill="none" stroke="#0f172a" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    </div>
+                    <span class="kpi-label">Volume Total</span>
+                </div>
+                <span id="kpiTotal" class="kpi-value">0</span>
+            </div>
+            
+            <div class="kpi-card critical">
+                <div class="kpi-header">
+                    <div class="kpi-icon">
+                        <svg width="16" height="16" fill="none" stroke="#ED1C24" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <span class="kpi-label">Atrasos Críticos</span>
+                </div>
+                <span id="kpiCritico" class="kpi-value">0</span>
+            </div>
+            
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <div class="kpi-icon">
+                        <svg width="16" height="16" fill="none" stroke="#0f172a" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                    </div>
+                    <span class="kpi-label">Pior Unidade</span>
+                </div>
+                <span id="kpiUnidadeValor" class="kpi-value">0</span>
+                <span id="kpiUnidadeNome" class="kpi-meta">-</span>
+            </div>
+            
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <div class="kpi-icon">
+                        <svg width="16" height="16" fill="none" stroke="#0f172a" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                    </div>
+                    <span class="kpi-label">Gargalo Documental</span>
+                </div>
+                <span id="kpiDocValor" class="kpi-value">0</span>
+                <span id="kpiDocNome" class="kpi-meta">-</span>
+            </div>
+        </section>
+
+        <section class="bento-main">
+            <div class="bento-row">
+                <div class="panel">
+                    <div class="panel-header">Distribuição por Unidade Operacional</div>
+                    <div class="chart-box"><canvas id="chartUnidade"></canvas></div>
+                </div>
+                <div class="panel">
+                    <div class="panel-header">Volume de Pendências por Tipo</div>
+                    <div class="chart-box"><canvas id="chartDocs"></canvas></div>
+                </div>
+            </div>
+
+            <div class="bento-grid">
+                <div class="panel">
+                    <div class="panel-header" style="margin-bottom: 8px;">Top Casos Críticos (Atrasos)</div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Colaborador / Unidade</th>
+                                    <th>Documento</th>
+                                    <th>Tempo de Atraso</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaTop10"></tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <div class="panel-header">Visão Geral de Status</div>
+                    <div class="chart-box"><canvas id="chartStatus"></canvas></div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        const baseDados = {{ dados_json | tojson | safe }};
+        
+        let chartUnidade, chartStatus, chartDocs;
+
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.color = '#64748b';
+        Chart.defaults.scale.grid.color = '#f1f5f9';
+
+        function inicializarGraficos() {
+            const chartOptions = { 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } }, 
+                scales: { 
+                    x: { grid: { display: false }, border: { display: false } }, 
+                    y: { border: { display: false } } 
+                } 
+            };
+
+            chartUnidade = new Chart(document.getElementById('chartUnidade'), {
+                type: 'bar',
+                data: { labels: [], datasets: [{ data: [], backgroundColor: '#0f172a', hoverBackgroundColor: '#ED1C24', borderRadius: 4 }] },
+                options: chartOptions
+            });
+
+            chartDocs = new Chart(document.getElementById('chartDocs'), {
+                type: 'bar',
+                data: { labels: [], datasets: [{ data: [], backgroundColor: '#0f172a', hoverBackgroundColor: '#ED1C24', borderRadius: 4 }] },
+                options: { ...chartOptions, indexAxis: 'y', scales: { x: { border: { display: false } }, y: { grid: { display: false }, border: { display: false } } } }
+            });
+
+            chartStatus = new Chart(document.getElementById('chartStatus'), {
+                type: 'doughnut',
+                data: { labels: [], datasets: [{ data: [], backgroundColor: ['#ED1C24', '#0f172a', '#94a3b8', '#e2e8f0'], borderWidth: 0 }] },
+                options: { maintainAspectRatio: false, cutout: '75%', plugins: { legend: { position: 'right', labels: { usePointStyle: true, padding: 15, font: { weight: 600 } } } } }
+            });
+        }
+
+        function carregarFiltros() {
+            const uniSelect = document.getElementById('filtroUnidade');
+            const docSelect = document.getElementById('filtroDocumento');
+            
+            const unidades = [...new Set(baseDados.map(i => i.unidade))].sort();
+            const docs = [...new Set(baseDados.map(i => i.documento))].sort();
+
+            uniSelect.innerHTML = '<option value="TODAS">Filtro Unidade</option>' + unidades.map(u => `<option value="${u}">${u}</option>`).join('');
+            docSelect.innerHTML = '<option value="TODOS">Filtro Documento</option>' + docs.map(d => `<option value="${d}">${d}</option>`).join('');
+        }
+
+        function atualizarDash() {
+            const fUni = document.getElementById('filtroUnidade').value;
+            const fDoc = document.getElementById('filtroDocumento').value;
+
+            let df = baseDados.filter(i => 
+                (fUni === 'TODAS' || i.unidade === fUni) && 
+                (fDoc === 'TODOS' || i.documento === fDoc)
+            );
+
+            document.getElementById('kpiTotal').innerText = df.length.toLocaleString('pt-BR');
+            document.getElementById('kpiCritico').innerText = df.filter(i => i.dias_atraso > 30).length.toLocaleString('pt-BR');
+
+            let contagemUni = {}, contagemDoc = {}, contagemStatus = {};
+            df.forEach(i => {
+                contagemUni[i.unidade] = (contagemUni[i.unidade] || 0) + 1;
+                contagemDoc[i.documento] = (contagemDoc[i.documento] || 0) + 1;
+                contagemStatus[i.status_pendencia] = (contagemStatus[i.status_pendencia] || 0) + 1;
+            });
+
+            let maxUni = Object.keys(contagemUni).length ? Object.keys(contagemUni).reduce((a, b) => contagemUni[a] > contagemUni[b] ? a : b) : "-";
+            let maxDoc = Object.keys(contagemDoc).length ? Object.keys(contagemDoc).reduce((a, b) => contagemDoc[a] > contagemDoc[b] ? a : b) : "-";
+            
+            document.getElementById('kpiUnidadeNome').innerText = maxUni;
+            document.getElementById('kpiUnidadeValor').innerText = maxUni !== "-" ? contagemUni[maxUni] : "0";
+            document.getElementById('kpiDocNome').innerText = maxDoc;
+            document.getElementById('kpiDocValor').innerText = maxDoc !== "-" ? contagemDoc[maxDoc] : "0";
+
+            chartUnidade.data.labels = Object.keys(contagemUni);
+            chartUnidade.data.datasets[0].data = Object.values(contagemUni);
+            chartUnidade.update();
+
+            let docsSorted = Object.entries(contagemDoc).sort((a, b) => b[1] - a[1]);
+            chartDocs.data.labels = docsSorted.map(i => i[0]);
+            chartDocs.data.datasets[0].data = docsSorted.map(i => i[1]);
+            chartDocs.update();
+
+            chartStatus.data.labels = Object.keys(contagemStatus);
+            chartStatus.data.datasets[0].data = Object.values(contagemStatus);
+            chartStatus.update();
+
+            // Renderiza 30 casos para garantir que a tabela gere um scroll visual
+            let topCasos = [...df].sort((a, b) => b.dias_atraso - a.dias_atraso).slice(0, 30);
+            let tbody = document.getElementById('tabelaTop10');
+            tbody.innerHTML = '';
+            
+            topCasos.forEach(item => {
+                let isCritical = item.dias_atraso > 0;
+                let badgeClass = isCritical ? 'badge-alert' : 'badge-neutral';
+                let textoAtraso = isCritical ? `${item.dias_atraso} dias` : 'Sem Data';
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td>
+                            <div class="td-title">${item.funcionario}</div>
+                            <div class="td-sub">${item.unidade}</div>
+                        </td>
+                        <td><span class="badge badge-doc">${item.documento}</span></td>
+                        <td><span class="badge ${badgeClass}">${textoAtraso}</span></td>
+                    </tr>
+                `;
+            });
+        }
+
+        window.onload = function() {
+            inicializarGraficos();
+            carregarFiltros();
+            atualizarDash();
+        };
+    </script>
+</body>
+</html>
